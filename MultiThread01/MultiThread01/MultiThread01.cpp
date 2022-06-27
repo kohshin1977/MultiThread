@@ -12,16 +12,13 @@
 unsigned __stdcall mythread0(void *);
 unsigned __stdcall mythread1(void *);
 
-int n;
-CRITICAL_SECTION cs;
+HANDLE hEvent[3];
 
 int main()
 {
 	int i;
 	HANDLE hTh[2];
 	unsigned int thID[2];
-
-	InitializeCriticalSection(&cs);
 
 	hTh[0] = (HANDLE)_beginthreadex(
 		NULL,
@@ -31,7 +28,7 @@ int main()
 		CREATE_SUSPENDED,
 		&thID[0]
 	);
-	if (hTh[0] == 0) {
+	if (hTh[0] == NULL) {
 		printf("スレッド0作成失敗\n");
 		return -1;
 	}
@@ -44,63 +41,54 @@ int main()
 		CREATE_SUSPENDED,
 		&thID[1]
 	);
-	if (hTh[1] == 0) {
+	if (hTh[1] == NULL) {
 		printf("スレッド1作成失敗\n");
 		return -1;
 	}
 
+
+	hEvent[0] = CreateEvent(NULL, TRUE, FALSE, _T("CH0"));
+	hEvent[1] = CreateEvent(NULL, TRUE, FALSE, _T("CH1"));
+	hEvent[2] = CreateEvent(NULL, TRUE, FALSE, _T("MAINEVENT"));
+
+	//各スレッド実行開始
 	for (i = 0; i < 2; i++)
 		ResumeThread(hTh[i]);
 
+	printf("イベント0をシグナル状態にします\n");
+	SetEvent(hEvent[0]);
 
-	WaitForMultipleObjects(2, hTh, TRUE, INFINITE);
-
+	WaitForSingleObject(hEvent[2], INFINITE);
+	printf("親を終了します\n");
 	for (i = 0; i < 2; i++)
 		CloseHandle(hTh[i]);
 
-	DeleteCriticalSection(&cs);
+	return 0;
+}
+
+unsigned __stdcall mythread0(LPVOID lpx)
+{
+	int i;
+
+	WaitForSingleObject(hEvent[0], INFINITE);
+	for (i = 0; i < 10; i++)
+		printf("子スレッド0[%d]\n", i);
+
+	printf("イベント1をシグナル状態にします\n");
+	SetEvent(hEvent[1]);
 
 	return 0;
 }
 
-unsigned __stdcall mythread0(void *lpx)
+unsigned __stdcall mythread1(LPVOID lpx)
 {
-	int esc = 0;
+	int i;
 
-	while (1) {
-		EnterCriticalSection(&cs);
-		if (n < 20) {
-			printf("mythread0 n = %d\n", n);
-			n++;
-		}
-		else {
-			esc = 1;
-		}
-		LeaveCriticalSection(&cs);
-		if (esc)
-			break;
-	}
+	WaitForSingleObject(hEvent[1], INFINITE);
+	for (i = 0; i < 10; i++)
+		printf("子スレッド1[%d]\n", i);
 
-	return 0;
-}
-
-unsigned __stdcall mythread1(void *lpx)
-{
-	int esc = 0;
-
-	while (1) {
-		EnterCriticalSection(&cs);
-		if (n < 20) {
-			printf("mythread1 n = %d\n", n);
-			n++;
-		}
-		else {
-			esc = 1;
-		}
-		LeaveCriticalSection(&cs);
-		if (esc)
-			break;
-	}
-
+	printf("イベント2をシグナル状態にします\n");
+	SetEvent(hEvent[2]);
 	return 0;
 }
