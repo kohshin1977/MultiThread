@@ -13,35 +13,21 @@ unsigned __stdcall mythread(void *);
 
 int main()
 {
-	unsigned int thID;
-	DWORD dwExCode;
-
-	HANDLE hTh;
 	int i;
+	HANDLE hTh;
+	unsigned int thID;
 
 	hTh = (HANDLE)_beginthreadex(NULL, 0, mythread, NULL, 0, &thID);
 	if (hTh == 0) {
 		printf("スレッド作成失敗\n");
 		return -1;
 	}
+
 	for (i = 0; i < 10; i++)
 		printf("Main [%d]\n", i);
 
-
-	while (1) {
-		GetExitCodeThread(hTh, &dwExCode);
-		if (dwExCode == STILL_ACTIVE) {
-			printf("スレッド稼働中\n");
-		}
-		else {
-			break;
-		}
-	}
-
-	if (hTh != NULL) {
-		CloseHandle(hTh);
-		printf("ハンドルクローズしました\n");
-	}
+	WaitForSingleObject(hTh, INFINITE);
+	CloseHandle(hTh);
 
 	return 0;
 }
